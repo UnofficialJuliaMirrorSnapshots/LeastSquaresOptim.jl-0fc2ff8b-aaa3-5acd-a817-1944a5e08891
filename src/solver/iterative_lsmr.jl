@@ -20,15 +20,14 @@ size(A::PreconditionedMatrix, i::Integer) = size(A.A, i)
 
 Base.adjoint(M::PreconditionedMatrix) = Adjoint(M)
 
-function mul!(b, pm::PreconditionedMatrix{TA, Tp, Tx}, a, α::Number, β::Number) where {TA, Tp, Tx}
+function mul!(b::AbstractVector{T}, pm::PreconditionedMatrix{TA, Tp, Tx}, a::AbstractVector{T}, α::Number, β::Number) where {T, TA, Tp, Tx}
     ldiv!(pm.tmp, pm.P, a)
     mul!(b, pm.A, pm.tmp, α, β)
     return b
 end
 
-function mul!(b, Cpm::Adjoint{Ta, PreconditionedMatrix{TA, Tp, Tx}}, a, α::Number, β::Number) where {Ta, TA, Tp, Tx}
+function mul!(b::AbstractVector{T}, Cpm::Adjoint{Ta, PreconditionedMatrix{TA, Tp, Tx}}, a::AbstractVector{T}, α::Number, β::Number) where {T, Ta, TA, Tp, Tx}
     pm = adjoint(Cpm)
-    T = eltype(b)
     β = convert(T, β)
     mul!(pm.tmp, pm.A',  a, one(T), zero(T))
     ldiv!(pm.tmp2, pm.P, pm.tmp)
@@ -51,11 +50,11 @@ end
 #############################################################################
 
 
-struct DampenedVector{Ty, Tx}
-    y::Ty # dimension of f(x)
-    x::Tx # dimension of x
+struct DampenedVector{T} <: AbstractVector{T}
+    y::AbstractVector{T} # dimension of f(x)
+    x::AbstractVector{T} # dimension of x
 end
-eltype(a::DampenedVector) =  promote_type(eltype(a.y), eltype(a.x))
+eltype(a::DampenedVector{T}) where {T} = T
 length(a::DampenedVector) = length(a.y) + length(a.x)
 function rmul!(a::DampenedVector, α::Number)
     rmul!(a.y, α)
@@ -77,7 +76,7 @@ function size(A::DampenedMatrix, dim::Integer)
 end
 Base.adjoint(M::DampenedMatrix) = Adjoint(M)
 
-function mul!(b::DampenedVector, mw::DampenedMatrix, a, α::Number, β::Number)
+function mul!(b::DampenedVector{T}, mw::DampenedMatrix, a::AbstractVector{T}, α::Number, β::Number) where {T}
     if β != 1
         rmul!(b, β)
     end
@@ -85,9 +84,8 @@ function mul!(b::DampenedVector, mw::DampenedMatrix, a, α::Number, β::Number)
     map!((z, x, y)-> z + α * x * y, b.x, b.x, a, mw.diagonal)
     return b
 end
-function mul!(b, Cmw::Adjoint{Ta, DampenedMatrix{TA, Tx}}, a::DampenedVector, α::Number, β::Number) where {Ta, TA, Tx}
+function mul!(b::AbstractVector{T}, Cmw::Adjoint{Ta, DampenedMatrix{TA, Tx}}, a::DampenedVector{T}, α::Number, β::Number) where {T, Ta, TA, Tx}
     mw = adjoint(Cmw)
-    T = eltype(b)
     β = convert(T, β)
     if β != one(T)
         if β == zero(T)
